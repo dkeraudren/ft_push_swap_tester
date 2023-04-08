@@ -3,17 +3,21 @@ import os
 import statistics
 import queue
 import threading
+import time
 
 CHECKER_BINARY = "./checker"
 PUSH_SWAP_BINARY = "./push_swap"
-CHECK_SORT = 'ARG="{}"; ./push_swap $ARG | ./checker $ARG'
-CHECK_LEN = 'ARG="{}"; ./push_swap $ARG | wc -l'
-TEST_QUANTITY = 1_000
+COMPUTE_SORT = 'ARG="{}"; ./push_swap $ARG'
+CHECK_SORT = 'ARG="{}"; echo "{}" | ./checker $ARG'
+CHECK_SPECIAL = 'ARG="{}"; ./push_swap $ARG | ./checker $ARG'
+TEST_QUANTITY = 10_000
 THREADS = 8
 
 queue_5 = queue.Queue()
 queue_100 = queue.Queue()
 queue_500 = queue.Queue()
+
+std_out_file = "std_out.txt"
 
 
 class bcolors:
@@ -36,11 +40,15 @@ def generate_random_list(size):
 
 
 def test_for(args):
-    # print("Testing for args: {}".format(" ".join(map(str, args))))
-    check_ok_cmd = CHECK_SORT.format(" ".join(map(str, args)))
-    check_len_cmd = CHECK_LEN.format(" ".join(map(str, args)))
+    compute_sort_cmd = COMPUTE_SORT.format(" ".join(map(str, args)))
+    operations = os.popen(compute_sort_cmd).read().strip()
+    if operations == "":
+        check_ok_cmd = CHECK_SPECIAL.format(" ".join(map(str, args)))
+        check_len = 0
+    else:
+        check_ok_cmd = CHECK_SORT.format(" ".join(map(str, args)), operations)
+        check_len = len(operations.split("\n"))
     check_ok = os.popen(check_ok_cmd).read().strip()
-    check_len = os.popen(check_len_cmd).read().strip()
     return check_ok, check_len
 
 
@@ -135,59 +143,14 @@ def test_500():
     print_results(ok_results, ko_results)
 
 
-def tester(len_args):
-    result = dict()
-    failed = 0
-    print("Testing push_swap with {} random lists".format(TEST_QUANTITY))
-    for i in range(TEST_QUANTITY):
-        args = generate_random_list(len_args)
-        # print(" ".join(map(str, args)))
-        # return
-        cmd_check_sort = CHECK_SORT.format(" ".join(map(str, args)))
-        cmd_len = CHECK_LEN.format(" ".join(map(str, args)))
-        # print(cmd_len)
-        check_sort = os.popen(cmd_check_sort).read()
-        check_len = os.popen(cmd_len).read()
-        result.setdefault(check_len.strip(), []).append(" ".join(map(str, args)))
-        # print(result)
-        # return
-        if check_sort != "OK\n":
-            print("KO for args: {}".format(" ".join(map(str, args))))
-            failed += 1
-        # print progress bar
-        print(
-            "["
-            + "#" * int(i / TEST_QUANTITY * 20)
-            + " " * (20 - int(i / TEST_QUANTITY * 20))
-            + "]"
-            + " {}%".format(int(i / TEST_QUANTITY * 100))
-            + " {} / {}".format(i, TEST_QUANTITY),
-            end="\r",
-        )
-    print("OK for {} nb of args".format(len_args))
-    print(
-        "Median number of operations: {}".format(
-            statistics.median(map(int, result.keys()))
-        )
-    )
-    print("Max number of operations: {}".format(max(map(int, result.keys()))))
-    print("Min number of operations: {}".format(min(map(int, result.keys()))))
-    print("Failed: {}".format(failed))
-    print(
-        "args with max operations: {}".format(result[str(max(map(int, result.keys())))])
-    )
-    # print(
-    #     "args with min operations: {}".format(result[str(min(map(int, result.keys())))])
-    # )
-
-
 def main():
+    now = time.time()
+    # tester(3)
+    # return
     test_5()
     test_100()
     test_500()
-    # tester(5)
-    # tester(100)
-    # tester(500)
+    print("Total time: {}s".format(time.time() - now))
 
 
 if __name__ == "__main__":
